@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Map } from "./pages/Map";
+import { CreateEvent } from "./pages/CreateEvent";
 import { PrivateRoute } from "./components/PrivateRoute";
 
 function App() {
@@ -16,6 +17,14 @@ function App() {
           element={
             <PrivateRoute>
               <Map />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/create-event"
+          element={
+            <PrivateRoute>
+              <CreateEvent />
             </PrivateRoute>
           }
         />

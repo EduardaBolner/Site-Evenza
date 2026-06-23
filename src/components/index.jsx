@@ -1,8 +1,6 @@
-import { Button } from './Button';
-import { Input } from './Input';
-import { Logo } from './Logo';
-import { Navbar } from './Navbar';
-import { Title } from './Title';
-import { PrivateRoute } from './PrivateRoute';
-
-export { Button, Input, Logo, Navbar, Title, PrivateRoute };
+export { Button } from "./Button";
+export { Input } from "./Input";
+export { Logo } from "./Logo";
+export { Navbar } from "./Navbar";
+export { PrivateRoute } from "./PrivateRoute";
+export { Title } from "./Title";

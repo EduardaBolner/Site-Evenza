@@ -8,19 +8,33 @@ import { useAuth } from "../contexts/AuthContext";
 const containerStyle = { width: "100%", height: "100%" };
 
 const mapStyles = [
-  { featureType: "all", elementType: "geometry", stylers: [{ color: "#f0f4f8" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e0e7ef" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9dff0" }] },
-  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#dce8f0" }] },
-  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#e8edf2" }] },
+  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f2efe9" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#e8f4e8" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#fde8c8" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#f5c98a" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.local", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#b8d9f0" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#6aa8d0" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#c8e6c9" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#e8f5e9" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#ede7f6" }] },
   { featureType: "administrative", elementType: "labels.text.fill", stylers: [{ color: "#192853" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#555e78" }] },
+  { featureType: "administrative", elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }, { weight: 2 }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#6b7a99" }] },
+  { featureType: "road", elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }, { weight: 2 }] },
 ];
 
 const LogoutIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
     <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.58L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="#192853"/>
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="#192853" opacity="0.5"/>
   </svg>
 );
 
@@ -30,7 +44,9 @@ export const Map = () => {
   const [markers, setMarkers] = useState([]);
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [mapCenter, setMapCenter] = useState({ lat: -28.2624, lng: -52.4088 });
-  const [clickedCoords, setClickedCoords] = useState(null);
+  const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [extras, setExtras] = useState({});
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -43,13 +59,20 @@ export const Map = () => {
         () => {}
       );
     }
+    const stored = JSON.parse(localStorage.getItem("evenza_eventos") || "{}");
+    setExtras(stored);
   }, []);
 
   useEffect(() => {
     async function fetchMarkers() {
       try {
         const data = await getPoints(token);
-        setMarkers(data);
+        const stored = JSON.parse(localStorage.getItem("evenza_eventos") || "{}");
+        // Mostra apenas os pontos que foram cadastrados pelo app (têm entrada no localStorage)
+        const filtered = data.filter((m) =>
+          Object.values(stored).some((ex) => ex.titulo === m.title)
+        );
+        setMarkers(filtered);
       } catch (e) {
         console.log(e.message);
       }
@@ -67,34 +90,132 @@ export const Map = () => {
     anchor: new window.google.maps.Point(12, 22),
   } : null;
 
-  const handleMapClick = (event) => {
+  const handleMapClick = () => {
     setSelectedMarker(null);
-    const lat = event.latLng.lat();
-    const lng = event.latLng.lng();
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      const endereco = status === "OK" && results[0]
-        ? results[0].formatted_address
-        : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      setClickedCoords({ lat, lng, endereco });
-    });
   };
 
-  const handleCadastrar = () => {
-    navigate("/create-event", {
-      state: { lat: clickedCoords.lat, lng: clickedCoords.lng, endereco: clickedCoords.endereco },
-    });
+  // Filtra markers pelo texto de busca
+  const filteredMarkers = markers.filter((m) =>
+    m.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Últimos 10 eventos cadastrados (para mostrar ao focar no search)
+  const last10 = markers.slice(-10).reverse();
+
+  // Carrossel: todos os markers com imagem salva, ou todos se não filtrado
+  const carouselItems = markers.filter((m) => {
+    const key = Object.keys(extras).find(
+      (k) => extras[k].titulo === m.title
+    );
+    return !!key;
+  });
+
+  const getExtra = (marker) => {
+    const key = Object.keys(extras).find((k) => extras[k].titulo === marker.title) ?? marker.id;
+    return extras[key] || extras[marker.id] || null;
   };
 
   return (
     <div className="flex flex-col h-full bg-[#eff8ff] relative">
-      {/* Botão logout */}
-      <button
-        onClick={logout}
-        className="absolute top-4 right-4 z-20 w-[40px] h-[40px] rounded-full bg-[#ffe14e] border-2 border-[#192853] shadow-md flex items-center justify-center hover:brightness-105 transition-colors"
-      >
-        <LogoutIcon />
-      </button>
+
+      {/* Topo: botão logout + barra de pesquisa */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2">
+        {/* Linha superior: espaço + botão sair */}
+        <div className="flex justify-end">
+          <button
+            onClick={logout}
+            className="w-[40px] h-[40px] rounded-full bg-[#ffe14e] border-2 border-[#192853] shadow-md flex items-center justify-center hover:brightness-105 transition-colors"
+          >
+            <LogoutIcon />
+          </button>
+        </div>
+
+        {/* Barra de pesquisa abaixo, largura total */}
+        <div className="flex items-center bg-white/80 backdrop-blur-sm border-2 border-[#ffe14e] rounded-full shadow-md h-[40px] px-3 gap-2">
+          <SearchIcon />
+          <input
+            type="text"
+            placeholder="Pesquisar eventos..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+            className="flex-1 bg-transparent text-[#192853] text-[14px] outline-none placeholder:text-[#192853]/60 font-medium"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-[#192853]/50 text-xs">✕</button>
+          )}
+        </div>
+      </div>
+
+      {/* Carrossel de eventos cadastrados */}
+      {carouselItems.length > 0 && !search && (
+        <div className="absolute top-[126px] left-0 right-0 z-10 px-3">
+          <div className="flex gap-[9px] overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {carouselItems.map((m) => {
+              const ex = getExtra(m);
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => { setSelectedMarker(m); setMapCenter(m.position); }}
+                  className="w-[110px] h-[110px] rounded-[20px] shrink-0 overflow-hidden shadow-md relative cursor-pointer"
+                >
+                  {ex?.imagem ? (
+                    <img src={ex.imagem} alt={m.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-[#192853] flex items-center justify-center">
+                      <span className="text-white text-[11px] font-bold text-center px-2">{m.title}</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                  <p className="absolute bottom-2 left-2 right-2 text-white text-[10px] font-semibold leading-tight">{m.title}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Resultados da pesquisa */}
+      {/* Dropdown de busca: ao focar mostra últimos 10, ao digitar filtra */}
+      {(searchFocused || search) && (
+        <div className="absolute top-[108px] left-4 right-4 z-20 bg-white rounded-2xl shadow-xl overflow-hidden">
+          {(search ? filteredMarkers : last10).length > 0 ? (
+            <>
+              {!search && (
+                <p className="text-[11px] font-semibold text-[#aaa] uppercase tracking-widest px-4 pt-3 pb-1">
+                  Últimos eventos
+                </p>
+              )}
+              {(search ? filteredMarkers : last10).map((m) => {
+                const ex = getExtra(m);
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => { setSelectedMarker(m); setMapCenter(m.position); setSearch(""); setSearchFocused(false); }}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 active:bg-gray-100"
+                  >
+                    {ex?.imagem ? (
+                      <img src={ex.imagem} alt={m.title} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-[#192853] flex items-center justify-center shrink-0">
+                        <span className="text-white text-[11px] font-bold">{m.title[0]}</span>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[#192853] font-semibold text-[14px]">{m.title}</p>
+                      {ex?.localizacao && <p className="text-gray-400 text-[12px]">{ex.localizacao}</p>}
+                      {ex?.data && <p className="text-gray-300 text-[11px]">{ex.data}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm text-center px-4 py-3">Nenhum evento encontrado</p>
+          )}
+        </div>
+      )}
 
       {/* Mapa */}
       <div className="flex-1 w-full">
@@ -106,13 +227,13 @@ export const Map = () => {
             onClick={handleMapClick}
             options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: false }}
           >
-            {markers.map((marker) => (
+            {filteredMarkers.map((marker) => (
               <Marker
                 key={marker.id}
                 position={marker.position}
                 title={marker.title}
                 icon={customMarkerIcon}
-                onClick={() => { setClickedCoords(null); setSelectedMarker(marker); }}
+                onClick={() => setSelectedMarker(marker)}
               />
             ))}
 
@@ -120,9 +241,19 @@ export const Map = () => {
               <InfoWindow
                 position={selectedMarker.position}
                 onCloseClick={() => setSelectedMarker(null)}
+                options={{ pixelOffset: new window.google.maps.Size(0, -36), disableAutoPan: false }}
               >
-                <div className="p-1 max-w-[160px]">
-                  <p className="font-bold text-[#192853] text-sm">{selectedMarker.title}</p>
+                <div style={{ maxWidth: 190, padding: "4px 2px" }}>
+                  <p style={{ fontWeight: "700", color: "#192853", fontSize: 13, margin: "0 0 4px" }}>{selectedMarker.title}</p>
+                  {getExtra(selectedMarker)?.descricao && (
+                    <p style={{ color: "#555", fontSize: 11, margin: "0 0 3px" }}>{getExtra(selectedMarker).descricao}</p>
+                  )}
+                  {getExtra(selectedMarker)?.horario && (
+                    <p style={{ color: "#888", fontSize: 11, margin: "2px 0 0" }}>🕐 {getExtra(selectedMarker).horario}</p>
+                  )}
+                  {getExtra(selectedMarker)?.localizacao && (
+                    <p style={{ color: "#888", fontSize: 11, margin: "2px 0 0" }}>📍 {getExtra(selectedMarker).localizacao}</p>
+                  )}
                 </div>
               </InfoWindow>
             )}
@@ -137,27 +268,6 @@ export const Map = () => {
         )}
       </div>
 
-      {/* Popup ao clicar no mapa */}
-      {clickedCoords && (
-        <div className="absolute bottom-[80px] left-1/2 -translate-x-1/2 z-20 bg-white rounded-2xl shadow-xl px-5 py-4 flex flex-col items-center gap-3 w-[260px]">
-          <p className="text-[#192853] font-semibold text-[15px]">Cadastrar evento aqui?</p>
-          <p className="text-gray-400 text-xs text-center">{clickedCoords.endereco}</p>
-          <div className="flex gap-2 w-full">
-            <button
-              onClick={() => setClickedCoords(null)}
-              className="flex-1 h-[38px] rounded-xl border border-gray-200 text-gray-500 text-sm font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCadastrar}
-              className="flex-1 h-[38px] rounded-xl bg-[#ffe14e] text-[#192853] text-sm font-bold"
-            >
-              Cadastrar
-            </button>
-          </div>
-        </div>
-      )}
 
       <Navbar />
       <div className="h-[61px]" />

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { postPoint } from "../services/mapService";
 import { Navbar } from "../components/Navbar";
@@ -40,35 +40,55 @@ const INSCRICOES = ["Pago", "Gratuito", "Sem Inscrição"];
 
 function RowField({ icon, placeholder, type = "text", value, onChange }) {
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-gray-100">
+    <label className="flex items-center gap-3 py-3 border-b border-gray-100 cursor-pointer w-full">
       <span className="shrink-0">{icon}</span>
       <input
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="flex-1 bg-transparent text-[#333] text-[15px] outline-none placeholder:text-[#bbb]"
+        className="flex-1 bg-transparent text-[#333] text-[15px] outline-none placeholder:text-[#bbb] w-full"
       />
       <ChevronIcon />
-    </div>
+    </label>
   );
 }
 
 export function CreateEvent() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [data, setData] = useState("");
   const [horario, setHorario] = useState("");
   const [localizacao, setLocalizacao] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
   const [site, setSite] = useState("");
   const [categorias, setCategorias] = useState([]);
   const [acessibilidade, setAcessibilidade] = useState([]);
   const [inscricao, setInscricao] = useState("");
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Usa coords do mapa se disponíveis, senão pega GPS
+  useEffect(() => {
+    if (location.state?.lat && location.state?.lng) {
+      setLat(location.state.lat.toFixed(6));
+      setLng(location.state.lng.toFixed(6));
+      if (location.state.endereco) setLocalizacao(location.state.endereco);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLat(pos.coords.latitude.toFixed(6));
+          setLng(pos.coords.longitude.toFixed(6));
+        },
+        () => {}
+      );
+    }
+  }, []);
 
   const toggleChip = (list, setList, value) => {
     setList((prev) =>
@@ -81,13 +101,13 @@ export function CreateEvent() {
     if (!titulo.trim()) return setErro("Informe o título do evento.");
     if (categorias.length === 0) return setErro("Selecione ao menos uma categoria.");
 
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    if (isNaN(latitude) || isNaN(longitude)) return setErro("Não foi possível obter a localização. Ative o GPS e tente novamente.");
+
     setLoading(true);
     try {
-      await postPoint(token, {
-        descricao: titulo,
-        latitude: -28.2624,
-        longitude: -52.4088,
-      });
+      await postPoint(token, { descricao: titulo, latitude, longitude });
       navigate("/map");
     } catch (err) {
       setErro(err.message);
@@ -130,7 +150,7 @@ export function CreateEvent() {
         <div className="mt-2">
           <RowField icon={<CalendarIcon />} placeholder="Data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           <RowField icon={<ClockIcon />} placeholder="Horário" type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
-          <RowField icon={<LocationIcon />} placeholder="Localização" value={localizacao} onChange={(e) => setLocalizacao(e.target.value)} />
+          <RowField icon={<LocationIcon />} placeholder="Localização (ex: Rua XV, Centro)" value={localizacao} onChange={(e) => setLocalizacao(e.target.value)} />
           <RowField icon={<LinkIcon />} placeholder="Site ou Rede Social" value={site} onChange={(e) => setSite(e.target.value)} />
         </div>
 

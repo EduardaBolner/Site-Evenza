@@ -90,14 +90,14 @@ export function Login() {
 
       <div className="w-full h-px bg-white/20 my-6" />
 
-      <div className="w-full">
-        <Link to="/register" className="w-full">
+      <div className="flex justify-center">
+        <Link to="/register">
           <button
             type="button"
-            className="w-full h-[44px] rounded-[100px] bg-white border border-[#747775] flex items-center justify-center gap-2 text-[#1f1f1f] font-medium text-[15px] cursor-pointer hover:bg-gray-50 transition-colors"
+            className="h-[38px] px-6 rounded-full bg-white border border-white text-[#192853] text-[13px] font-medium flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors"
           >
             <ArrowRightIcon />
-            Faça seu cadastro
+            Faça o seu cadastro!
           </button>
         </Link>
       </div>

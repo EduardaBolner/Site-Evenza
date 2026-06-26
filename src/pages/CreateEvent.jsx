@@ -99,6 +99,7 @@ export function CreateEvent() {
   const [categorias, setCategorias] = useState([]);
   const [acessibilidade, setAcessibilidade] = useState([]);
   const [inscricao, setInscricao] = useState("");
+  const [valor, setValor] = useState("");
   const [imagem, setImagem] = useState(null);
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
@@ -179,10 +180,15 @@ export function CreateEvent() {
         categories: categorias,
         accessibility: acessibilidade.length > 0 ? acessibilidade : null,
         registrationType: inscricao || null,
+        ticketPrice: inscricao === "Pago" && valor ? parseFloat(valor) : null,
         imageBase64: imagem || null,
       };
 
-      await postPoint(token, payload);
+      const saved = await postPoint(token, payload);
+
+      const extras = JSON.parse(localStorage.getItem("evenza_eventos") || "{}");
+      extras[saved?.id ?? titulo] = { titulo, descricao, data, horario, localizacao, site, categorias, acessibilidade, inscricao, valor: inscricao === "Pago" ? valor : "", imagem };
+      localStorage.setItem("evenza_eventos", JSON.stringify(extras));
 
       navigate("/map");
     } catch (err) {
@@ -254,64 +260,75 @@ export function CreateEvent() {
         </div>
       )}
 
-      <div className="min-h-screen bg-white flex flex-col pb-[80px]">
-        <div className="flex-1 overflow-y-auto px-5 pt-8">
+      <div className="min-h-screen bg-[#eff8ff] flex flex-col pb-[80px]">
 
-          <p className="text-[11px] font-semibold text-[#aaa] uppercase tracking-widest mb-3">Sobre o evento</p>
+        {/* Header */}
+        <div className="flex items-center justify-center px-5 pt-10 pb-4">
+          <p className="text-[#192853] font-bold text-[17px]">Cadastro de Eventos</p>
+        </div>
 
+        <div className="flex-1 overflow-y-auto px-4 flex flex-col gap-4">
+
+          {/* Imagem */}
           <div
             onClick={() => imageInputRef.current?.click()}
-            className="w-full h-[140px] rounded-[14px] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer mb-4 overflow-hidden relative"
+            className="w-full h-[170px] rounded-[18px] overflow-hidden relative cursor-pointer bg-[#192853]/80"
           >
             {imagem ? (
               <img src={imagem} alt="capa" className="w-full h-full object-cover" />
             ) : (
-              <>
-                <UploadIcon color="#bbb" />
-                <p className="text-[13px] text-[#bbb] mt-2">Adicionar imagem do evento</p>
-              </>
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                <div className="w-12 h-12 rounded-full bg-[#ffe14e]/20 flex items-center justify-center">
+                  <UploadIcon color="#ffe14e" />
+                </div>
+                <p className="text-[#ffe14e] text-[13px] font-medium">Adicionar imagem do evento</p>
+              </div>
             )}
             <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImage} />
           </div>
 
-          <div className="mb-1">
-            <p className="text-[13px] font-semibold text-[#333] mb-1">Título <span className="text-red-500">*</span></p>
-            <input
-              type="text"
-              placeholder="Ex: Festival de Verão 2026"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              className="w-full border border-gray-200 rounded-[10px] px-3 h-[44px] text-[15px] text-[#333] outline-none placeholder:text-[#ccc] focus:border-[#192853]"
-            />
+          {/* Sobre o Evento */}
+          <div className="bg-white rounded-[18px] px-4 pt-4 pb-3 flex flex-col gap-3 shadow-sm">
+            <p className="text-[13px] font-bold text-[#192853] uppercase tracking-widest">Sobre o Evento</p>
+
+            <div>
+              <p className="text-[13px] font-semibold text-[#192853] mb-1">Título <span className="text-red-500">*</span></p>
+              <input
+                type="text"
+                placeholder="Ex: Festival de Verão 2026"
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                className="w-full border border-[#dde6f0] rounded-[10px] px-3 h-[44px] text-[15px] text-[#192853] outline-none placeholder:text-[#b0bec5] focus:border-[#192853] bg-[#f7fafd]"
+              />
+            </div>
+
+            <div>
+              <p className="text-[13px] font-semibold text-[#192853] mb-1">Descrição</p>
+              <textarea
+                placeholder="Conte mais sobre o evento..."
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                rows={3}
+                className="w-full border border-[#dde6f0] rounded-[10px] px-3 py-2 text-[15px] text-[#192853] outline-none placeholder:text-[#b0bec5] resize-none focus:border-[#192853] bg-[#f7fafd]"
+              />
+            </div>
           </div>
 
-          <div className="mt-4 mb-2">
-            <p className="text-[13px] font-semibold text-[#333] mb-1">Descrição</p>
-            <textarea
-              placeholder="Conte mais sobre o evento..."
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              rows={3}
-              className="w-full border border-gray-200 rounded-[10px] px-3 py-2 text-[15px] text-[#333] outline-none placeholder:text-[#ccc] resize-none focus:border-[#192853]"
-            />
-          </div>
-
-          <div className="mt-2">
+          {/* Detalhes */}
+          <div className="bg-white rounded-[18px] px-4 shadow-sm">
             <RowField icon={<CalendarIcon />} placeholder="Data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
             <RowField icon={<ClockIcon />} placeholder="Horário" type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
 
             <button
               type="button"
               onClick={openMapPicker}
-              className="flex items-center gap-3 py-3 border-b border-gray-100 w-full text-left"
+              className="flex items-center gap-3 py-[14px] border-b border-gray-100 w-full text-left"
             >
               <span className="shrink-0"><MapPinIcon /></span>
-              <span className={`flex-1 text-[15px] ${hasLocation ? "text-[#192853] font-medium" : "text-[#bbb]"}`}>
+              <span className={`flex-1 text-[15px] font-medium ${hasLocation ? "text-[#192853]" : "text-[#b0bec5]"}`}>
                 {hasLocation ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : "Selecionar no mapa"}
               </span>
-              <span className={`text-[12px] font-medium ${hasLocation ? "text-[#192853]" : "text-[#aaa]"}`}>
-                {hasLocation ? "Alterar" : ""}
-              </span>
+              {hasLocation && <span className="text-[12px] font-medium text-[#192853]">Alterar</span>}
               <ChevronIcon />
             </button>
 
@@ -319,55 +336,76 @@ export function CreateEvent() {
             <RowField icon={<LinkIcon />} placeholder="Site ou Rede Social" value={site} onChange={(e) => setSite(e.target.value)} />
           </div>
 
-          <div className="mt-5">
-            <p className="text-[13px] font-semibold text-[#333] mb-2">Categoria <span className="text-red-500">*</span></p>
+          {/* Categoria */}
+          <div className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
+            <p className="text-[13px] font-bold text-[#192853] uppercase tracking-widest mb-3">Categoria <span className="text-red-400 normal-case">*</span></p>
             <div className="flex flex-wrap gap-2">
               {CATEGORIAS.map((c) => (
                 <button key={c} type="button" onClick={() => toggleChip(categorias, setCategorias, c)}
-                  className={`px-3 py-1 rounded-full text-[13px] font-medium border transition-all ${categorias.includes(c) ? "bg-[#192853] text-white border-[#192853]" : "bg-white text-[#555] border-gray-300"}`}>
+                  className={`px-4 py-[7px] rounded-full text-[13px] font-medium transition-all ${categorias.includes(c) ? "bg-[#192853] text-white" : "bg-[#e8edf5] text-[#192853]"}`}>
                   {c}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="mt-5">
-            <p className="text-[13px] font-semibold text-[#333] mb-2">Máscaras de acessibilidade</p>
+          {/* Acessibilidade */}
+          <div className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
+            <p className="text-[13px] font-bold text-[#192853] uppercase tracking-widest mb-3">Acessibilidade</p>
             <div className="flex flex-wrap gap-2">
               {ACESSIBILIDADE.map((a) => (
                 <button key={a} type="button" onClick={() => toggleChip(acessibilidade, setAcessibilidade, a)}
-                  className={`px-3 py-1 rounded-full text-[13px] font-medium border transition-all ${acessibilidade.includes(a) ? "bg-[#192853] text-white border-[#192853]" : "bg-white text-[#555] border-gray-300"}`}>
+                  className={`px-4 py-[7px] rounded-full text-[13px] font-medium transition-all ${acessibilidade.includes(a) ? "bg-[#192853] text-white" : "bg-[#e8edf5] text-[#192853]"}`}>
                   {a}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="mt-5 mb-6">
-            <p className="text-[13px] font-semibold text-[#333] mb-2">Inscrições</p>
+          {/* Inscrições */}
+          <div className="bg-white rounded-[18px] px-4 py-4 shadow-sm flex flex-col gap-3">
+            <p className="text-[13px] font-bold text-[#192853] uppercase tracking-widest">Inscrições</p>
             <div className="flex flex-wrap gap-2">
               {INSCRICOES.map((i) => (
-                <button key={i} type="button" onClick={() => setInscricao(i === inscricao ? "" : i)}
-                  className={`px-3 py-1 rounded-full text-[13px] font-medium border transition-all ${inscricao === i ? "bg-[#192853] text-white border-[#192853]" : "bg-white text-[#555] border-gray-300"}`}>
+                <button key={i} type="button" onClick={() => { setInscricao(i === inscricao ? "" : i); if (i !== "Pago") setValor(""); }}
+                  className={`px-4 py-[7px] rounded-full text-[13px] font-medium transition-all ${inscricao === i ? "bg-[#192853] text-white" : "bg-[#e8edf5] text-[#192853]"}`}>
                   {i}
                 </button>
               ))}
             </div>
+            {inscricao === "Pago" && (
+              <div>
+                <p className="text-[13px] font-semibold text-[#192853] mb-1">Valor do ingresso</p>
+                <div className="flex items-center border border-[#dde6f0] rounded-[10px] px-3 h-[44px] focus-within:border-[#192853] bg-[#f7fafd]">
+                  <span className="text-[#192853] text-[15px] mr-1 font-medium">R$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={valor}
+                    onChange={(e) => setValor(e.target.value)}
+                    className="flex-1 bg-transparent text-[#192853] text-[15px] outline-none placeholder:text-[#b0bec5]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {erro && <p className="text-red-500 text-sm text-center mb-3">{erro}</p>}
+          {erro && <p className="text-red-500 text-sm text-center">{erro}</p>}
 
-          <button type="button" onClick={handleSubmit} disabled={loading}
-            className="w-full h-[52px] rounded-full bg-[#ffe14e] text-[#192853] font-bold text-[16px] flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-60 mb-3">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="#192853"/>
-            </svg>
-            {loading ? "Publicando..." : "Publicar evento"}
-          </button>
-
-          <p className="text-center text-[13px] text-[#aaa] cursor-pointer hover:text-[#555] mb-4" onClick={() => navigate("/map")}>
-            Cancelar
-          </p>
+          <div className="flex flex-col gap-3 pb-4">
+            <button type="button" onClick={handleSubmit} disabled={loading}
+              className="w-full h-[52px] rounded-full bg-[#ffe14e] text-[#192853] font-bold text-[16px] flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-60">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="#192853"/>
+              </svg>
+              {loading ? "Publicando..." : "Publicar Evento!"}
+            </button>
+            <p className="text-center text-[13px] text-[#192853]/40 cursor-pointer hover:text-[#192853]/70" onClick={() => navigate("/map")}>
+              Cancelar
+            </p>
+          </div>
         </div>
 
         <Navbar />
